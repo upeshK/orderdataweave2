@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <http:request-config name="HTTP_Request_Configuration" host="0.0.0.0" port="8082" basePath="/api" doc:name="HTTP Request Configuration">
+        <http:raml-api-configuration location="t-shirt.raml"/>
+    </http:request-config>
+    <flow name="orderdataweave2Flow">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/place-order" doc:name="HTTP" metadata:id="5f5a4982-48b7-4afb-a6f1-fe4b57a82b9e"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="dw-tshirt-inputsample.xml"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	address1: payload.order.buyer.address,
+	address2: null,
+	city: payload.order.buyer.city,
+	country: payload.order.buyer.nationality,
+	email: payload.order.buyer.email,
+	name: payload.order.buyer.name,
+	postalCode: payload.order.buyer.postCode,
+	size: "M" unless payload.order.buyer.nationality == "British" otherwise "XXL",
+	stateOrProvince: payload.order.buyer.state
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <http:request config-ref="HTTP_Request_Configuration" path="/orders" method="POST" doc:name="HTTP"/>
+    </flow>
+    <flow name="orderdataweave2Flow1">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/get-products" allowedMethods="get" doc:name="HTTP"/>
+        <http:request config-ref="HTTP_Request_Configuration" path="/products" method="GET" doc:name="HTTP"/>
+        <logger message="Payload &gt;&gt;&gt;&gt;#[payload]" level="INFO" doc:name="Logger"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data\list_json.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+shirts: payload map {
+	size: upper $.size,
+	description:$.description,
+	count:$.count
+	
+} filter $.count > 0 and $.count<3000 groupBy $.size]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+</mule>
