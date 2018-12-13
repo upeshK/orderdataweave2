@@ -35,7 +35,6 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
     <flow name="orderdataweave2Flow1">
         <http:listener config-ref="HTTP_Listener_Configuration" path="/get-products" allowedMethods="get" doc:name="HTTP"/>
         <http:request config-ref="HTTP_Request_Configuration" path="/products" method="GET" doc:name="HTTP"/>
-        <logger message="Payload &gt;&gt;&gt;&gt;#[payload]" level="INFO" doc:name="Logger"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:input-payload doc:sample="sample_data\list_json.json"/>
             <dw:set-payload><![CDATA[%dw 1.0
@@ -48,5 +47,50 @@ shirts: payload map {
 	
 } filter $.count > 0 and $.count<3000 groupBy $.size]]></dw:set-payload>
         </dw:transform-message>
+        <logger message="Payload &gt;&gt;&gt;&gt;#[payload]" level="INFO" doc:name="Logger"/>
     </flow>
+    <flow name="orderdataweave2Flow2">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/contacts" allowedMethods="post" doc:name="HTTP"/>
+        <dw:transform-message doc:name="Transform Message" metadata:id="102a36e0-83ac-4625-8937-0e560ecdead5">
+            <dw:input-payload doc:sample="H:\MULE_REQ_RES_FILES\userInput.xml" mimeType="application/xml"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%function splitBySpace(name) name splitBy /\s+/
+
+---
+// contacts:payload.users.*user map {
+//	firstName:  ($.name splitBy /\s+/)[0],
+//	lastName: ($.name splitBy /\s+/)[1],
+//	email: lower $.name replace /\s+/ with "." ++ "@acme.com.ar",
+//	address: $.street
+//	
+//} 
+
+contacts: payload.users.*user map using(names= splitBySpace($.name)){
+	firstName:names[0],
+	lastName:names[1],
+	email:lower $.name replace /\s+/ with "." ++ "@gmail.com",
+	address:$.name
+	
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="orderdataweave2Flow3">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/items/groupByAuthor" doc:name="HTTP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:input-payload doc:sample="sample_data\json.json"/>
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+patents:payload.items groupBy $.type pluck {
+	type: $$,
+	label: $.label
+}
+
+
+
+]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+
 </mule>
